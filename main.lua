@@ -58,6 +58,8 @@ function SMODS.INIT.superbalatriobros()
 	
 	mod.nesData.isActive = false
 	
+	mod.nesData.marioScore = 0
+	
 	function mod.resetMario()
 		print("RESETTING NES")
 		mod.nes = NES:new({
@@ -86,7 +88,6 @@ function SMODS.INIT.superbalatriobros()
 		["right"] = Pad.RIGHT,
 		["x"] = Pad.A,
 		["z"] = Pad.B,
-		["rshift"] = Pad.SELECT,
 		["return"] = Pad.START
 	}	
 	
@@ -130,6 +131,8 @@ function SMODS.INIT.superbalatriobros()
 				mod.nesData.keyEvents = {}
 				mod.nes:run_once()
 				
+				
+				
 				local samples = mod.nes.cpu.apu.output
 				for i = 1, #samples do
 					mod.nesData.sound:setSample(i, samples[i])
@@ -138,6 +141,21 @@ function SMODS.INIT.superbalatriobros()
 				mod.nesData.QS:play()
 				
 				mod.nesData.framesToUpdate = mod.nesData.framesToUpdate - 1
+			end
+			local score = ''
+			for i=0x07DD,0x07E2 do
+				score = score .. mod.nes.cpu.ram[i]
+			end
+			mod.nesData.marioScore = tonumber(score)
+			if mod.nes.cpu.ram[0x0776] ~= 0 then
+				--no pausing allowed!
+				for i=0x07DD,0x07E2 do
+					mod.nes.cpu.ram[i] = 0
+				end
+				
+				for i=0x07F8,0x07FA do
+					mod.nes.cpu.ram[i] = 0
+				end
 			end
 		end
 		
@@ -173,9 +191,9 @@ function SMODS.INIT.superbalatriobros()
 		'supermariobros', {},
 		{x=0,y=0},
 		{name = "Super Balatrio Bros.",text = {
-			'Gives Chips equal',
-			'to SCORE/100',
-			'while not paused.',
+			'{C:attention}Use arrow keys, Z, X, and Enter{}',
+			'Gives Chips equal to SCORE/100',
+			'{C:attention}Pausing is not allowed.{}',
 			'{C:inactive}(Currently {C:chips}+#1#{C:inactive} Chips)'}
 		},
 		3,
@@ -240,7 +258,7 @@ function SMODS.INIT.superbalatriobros()
 				--swing your arms from side to side
 				if mod.nesData.isActive then
 					mod.nesData.framesToUpdate = mod.nesData.framesToUpdate + (dt * mod.nesData.fps)
-					self.ability.extra.chips = 100
+					self.ability.extra.chips = math.floor(mod.nesData.marioScore / 10)
 					
 				else
 					mod.resetMario()
