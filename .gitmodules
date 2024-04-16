@@ -1,0 +1,3 @@
+[submodule "LuaNES"]
+	path = LuaNES
+	url = https://github.com/nico-abram/LuaNES
