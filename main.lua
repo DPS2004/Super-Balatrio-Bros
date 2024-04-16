@@ -51,36 +51,42 @@ function SMODS.INIT.superbalatriobros()
 	local channels = 1
 	mod.nesData.sound = love.sound.newSoundData(samplerate / 60 + 1, samplerate, bits, channels)
 	mod.nesData.QS = love.audio.newQueueableSource(samplerate, bits, channels)
+	mod.nesData.QS:setVolume(0.5)
 	
 	mod.nesData.framesToUpdate = 0
 	mod.nesData.fps = 59.94
 	
+	mod.nesData.isActive = false
 	
-	mod.nes = NES:new({
-		file = love.filesystem.getSaveDirectory() ..'/' .. mod.path .. 'LuaNES/roms/Super Mario Bros (E).nes',
-		loglevel = 0,
-		pc = nil,
-		palette = UTILS.map(
-			PALETTE:defacto_palette(),
-			function(c)
-				return {c[1] / 256, c[2] / 256, c[3] / 256}
-			end
-		)
-	})
-	mod.nes:reset()
+	function mod.resetMario()
+		print("RESETTING NES")
+		mod.nes = NES:new({
+			file = love.filesystem.getSaveDirectory() ..'/' .. mod.path .. 'LuaNES/roms/Super Mario Bros (E).nes',
+			loglevel = 0,
+			pc = nil,
+			palette = UTILS.map(
+				PALETTE:defacto_palette(),
+				function(c)
+					return {c[1] / 256, c[2] / 256, c[3] / 256}
+				end
+			)
+		})
+		mod.nes:reset()
+		mod.nesData.isActive = true
+	end
 	
 	
 	--start binding to love
 
 	mod.nesData.keyEvents = {}
 	local keyButtons = {
-		["w"] = Pad.UP,
-		["a"] = Pad.LEFT,
-		["s"] = Pad.DOWN,
-		["d"] = Pad.RIGHT,
-		["o"] = Pad.A,
-		["p"] = Pad.B,
-		["i"] = Pad.SELECT,
+		["up"] = Pad.UP,
+		["left"] = Pad.LEFT,
+		["down"] = Pad.DOWN,
+		["right"] = Pad.RIGHT,
+		["x"] = Pad.A,
+		["z"] = Pad.B,
+		["rshift"] = Pad.SELECT,
 		["return"] = Pad.START
 	}	
 	
@@ -109,44 +115,51 @@ function SMODS.INIT.superbalatriobros()
 	end
 	
 	function love.update(dt)
-		mod.nesData.framesToUpdate = mod.nesData.framesToUpdate + (dt * mod.nesData.fps)
 		
-		while mod.nesData.framesToUpdate > 1 do
-			
-			for i, v in ipairs(mod.nesData.keyEvents) do
-				mod.nes.pads[v[1]](mod.nes.pads, 1, v[2])
-			end
-			
-			mod.nesData.keyEvents = {}
-			mod.nes:run_once()
-			
-			local samples = mod.nes.cpu.apu.output
-			for i = 1, #samples do
-				mod.nesData.sound:setSample(i, samples[i])
-			end
-			mod.nesData.QS:queue(mod.nesData.sound)
-			mod.nesData.QS:play()
-			
-			mod.nesData.framesToUpdate = mod.nesData.framesToUpdate - 1
-		end
 		
 		loveUpdateRef(dt)
+	
+		if mod.nesData.isActive then
+			
+			while mod.nesData.framesToUpdate > 1 do
+				
+				for i, v in ipairs(mod.nesData.keyEvents) do
+					mod.nes.pads[v[1]](mod.nes.pads, 1, v[2])
+				end
+				
+				mod.nesData.keyEvents = {}
+				mod.nes:run_once()
+				
+				local samples = mod.nes.cpu.apu.output
+				for i = 1, #samples do
+					mod.nesData.sound:setSample(i, samples[i])
+				end
+				mod.nesData.QS:queue(mod.nesData.sound)
+				mod.nesData.QS:play()
+				
+				mod.nesData.framesToUpdate = mod.nesData.framesToUpdate - 1
+			end
+		end
+		
 	end
 	
 	function love.draw()
-		loveDrawRef()
 		
-		love.graphics.setColor(1,1,1,1)
-		local pxs = mod.nes.cpu.ppu.output_pixels
-		
-		for i=1,PPU.SCREEN_HEIGHT * PPU.SCREEN_WIDTH do
-			local x = (i - 1) % mod.nesData.width
-			local y = math.floor((i - 1) / mod.nesData.width) % mod.nesData.height
-			local px = pxs[i]
-			mod.nesData.imageData:setPixel(x + 1, y + 1, px[1], px[2], px[3], 1)
+		if mod.nesData.isActive then
+			love.graphics.setColor(1,1,1,1)
+			local pxs = mod.nes.cpu.ppu.output_pixels
+			
+			for i=1,PPU.SCREEN_HEIGHT * PPU.SCREEN_WIDTH do
+				local x = (i - 1) % mod.nesData.width
+				local y = math.floor((i - 1) / mod.nesData.width) % mod.nesData.height
+				local px = pxs[i]
+				mod.nesData.imageData:setPixel(x + 1, y + 1, px[1], px[2], px[3], 1)
+			end
+			mod.nesData.image:replacePixels(mod.nesData.imageData)
 		end
-		mod.nesData.image:replacePixels(mod.nesData.imageData)
-		love.graphics.draw(mod.nesData.image)
+		
+		loveDrawRef()
+		--love.graphics.draw(mod.nesData.image)
 		
 	end
 	
@@ -159,7 +172,12 @@ function SMODS.INIT.superbalatriobros()
 		"Super Balatrio Bros.",
 		'supermariobros', {},
 		{x=0,y=0},
-		{name = "Super Balatrio Bros.",text = {'So Retro!'}},
+		{name = "Super Balatrio Bros.",text = {
+			'Gives Chips equal',
+			'to SCORE/100',
+			'while not paused.',
+			'{C:inactive}(Currently {C:chips}+#1#{C:inactive} Chips)'}
+		},
 		3,
 		5,
 		true,
@@ -174,18 +192,44 @@ function SMODS.INIT.superbalatriobros()
 	
 	
 	
-	--jself.loc_def = jokerInfo.locDef
+	jself.loc_def = function(self)
+		return {self.ability.extra.chips}
+	end
 	
-	--jself.set_ability = jokerInfo.init
+
+	local setupCanvas = function(self)
+		self.children.center.video = love.graphics.newCanvas(71,95) --why does this work lmaooooooo
+		self.children.center.video:renderTo(function()
+			love.graphics.clear(1,1,1,0) 
+			love.graphics.setColor(1,1,1,1)
+			love.graphics.draw(mod.marioCardBase)
+		end)
+	end
 	
-	--jself.calculate = jokerInfo.calculate
+	jself.set_ability = function(self)
+		self.ability.extra = {
+			chips = 0
+		}
+		setupCanvas(self)
+
+	end
+	jself.calculate = function(self, context)
+		if SMODS.end_calculate_context(context) then
+			return {
+				message = localize{type='variable',key='a_chips',vars={self.ability.extra.chips}},
+				chip_mod = self.ability.extra.chips, 
+				colour = G.C.CHIPS
+			}
+		end
+	end
 	
 	
 	--load sprite
 	SMODS.Sprite:new('j_supermariobros',mod.path,'supermariobros.png',71,95,'asset_atli'):register()
-		
-
 	
+	--but this time with feeling!
+	mod.marioCardBase = love.graphics.newImage(mod.path..'assets/1x/supermariobros.png')
+		
 	
 	--updates
 	local card_updateRef = Card.update
@@ -194,9 +238,35 @@ function SMODS.INIT.superbalatriobros()
 			if G.STAGE == G.STAGES.RUN then
 				--do the Mario
 				--swing your arms from side to side
+				if mod.nesData.isActive then
+					mod.nesData.framesToUpdate = mod.nesData.framesToUpdate + (dt * mod.nesData.fps)
+					self.ability.extra.chips = 100
+					
+				else
+					mod.resetMario()
+				end
 			end
 		end
 		card_updateRef(self,dt)
+	end
+	
+	local card_drawRef = Card.draw
+	
+	
+	function Card.draw(self, layer)
+		if self.ability.name == "Super Balatrio Bros." then
+			love.graphics.push('all')
+				love.graphics.reset()
+				if not self.children.center.video then
+					setupCanvas(self)
+				end
+				self.children.center.video:renderTo(function()
+					love.graphics.draw(mod.nesData.image,5,5,0,61 / mod.nesData.width,57 / mod.nesData.height,1,1)
+				end)
+			love.graphics.pop()
+			
+		end
+		card_drawRef(self,layer)
 	end
 	
 	--[[
