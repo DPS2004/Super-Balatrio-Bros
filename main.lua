@@ -34,7 +34,124 @@ function SMODS.INIT.superbalatriobros()
 	local mod = SMODS.findModByID('superbalatriobros')
 	
 	
+	------------------------------Set up emulator
+	local oldRequire = require
+	require = function(path)
+		return love.filesystem.load(mod.path .. 'LuaNES/'..path..'.lua')()
+	end
 	
+	require('nes')
+	mod.nesData = {}
+	mod.nesData.width = 256
+	mod.nesData.height = 240
+	mod.nesData.imageData = love.image.newImageData(mod.nesData.width + 1, mod.nesData.height + 1)
+    mod.nesData.image = love.graphics.newImage(mod.nesData.imageData)
+	local samplerate = 44100
+	local bits = 16
+	local channels = 1
+	mod.nesData.sound = love.sound.newSoundData(samplerate / 60 + 1, samplerate, bits, channels)
+	mod.nesData.QS = love.audio.newQueueableSource(samplerate, bits, channels)
+	
+	mod.nesData.framesToUpdate = 0
+	mod.nesData.fps = 59.94
+	
+	
+	mod.nes = NES:new({
+		file = love.filesystem.getSaveDirectory() ..'/' .. mod.path .. 'LuaNES/roms/Super Mario Bros (E).nes',
+		loglevel = 0,
+		pc = nil,
+		palette = UTILS.map(
+			PALETTE:defacto_palette(),
+			function(c)
+				return {c[1] / 256, c[2] / 256, c[3] / 256}
+			end
+		)
+	})
+	mod.nes:reset()
+	
+	
+	--start binding to love
+
+	mod.nesData.keyEvents = {}
+	local keyButtons = {
+		["w"] = Pad.UP,
+		["a"] = Pad.LEFT,
+		["s"] = Pad.DOWN,
+		["d"] = Pad.RIGHT,
+		["o"] = Pad.A,
+		["p"] = Pad.B,
+		["i"] = Pad.SELECT,
+		["return"] = Pad.START
+	}	
+	
+	
+	local loveKeyPressedRef = love.keypressed
+	local loveKeyReleasedRef = love.keyreleased
+	local loveUpdateRef = love.update
+	local loveDrawRef = love.draw
+	
+	function love.keypressed(key)
+		for k, v in pairs(keyButtons) do
+			if k == key then
+				mod.nesData.keyEvents[#mod.nesData.keyEvents + 1] = {"keydown", v}
+			end
+		end
+		loveKeyPressedRef(key)
+	end
+	
+	function love.keyreleased(key)
+		for k, v in pairs(keyButtons) do
+			if k == key then
+				mod.nesData.keyEvents[#mod.nesData.keyEvents + 1] = {"keyup", v}
+			end
+		end
+		loveKeyReleasedRef(key)
+	end
+	
+	function love.update(dt)
+		mod.nesData.framesToUpdate = mod.nesData.framesToUpdate + (dt * mod.nesData.fps)
+		
+		while mod.nesData.framesToUpdate > 1 do
+			
+			for i, v in ipairs(mod.nesData.keyEvents) do
+				mod.nes.pads[v[1]](mod.nes.pads, 1, v[2])
+			end
+			
+			mod.nesData.keyEvents = {}
+			mod.nes:run_once()
+			
+			local samples = mod.nes.cpu.apu.output
+			for i = 1, #samples do
+				mod.nesData.sound:setSample(i, samples[i])
+			end
+			mod.nesData.QS:queue(mod.nesData.sound)
+			mod.nesData.QS:play()
+			
+			mod.nesData.framesToUpdate = mod.nesData.framesToUpdate - 1
+		end
+		
+		loveUpdateRef(dt)
+	end
+	
+	function love.draw()
+		loveDrawRef()
+		
+		love.graphics.setColor(1,1,1,1)
+		local pxs = mod.nes.cpu.ppu.output_pixels
+		
+		for i=1,PPU.SCREEN_HEIGHT * PPU.SCREEN_WIDTH do
+			local x = (i - 1) % mod.nesData.width
+			local y = math.floor((i - 1) / mod.nesData.width) % mod.nesData.height
+			local px = pxs[i]
+			mod.nesData.imageData:setPixel(x + 1, y + 1, px[1], px[2], px[3], 1)
+		end
+		mod.nesData.image:replacePixels(mod.nesData.imageData)
+		love.graphics.draw(mod.nesData.image)
+		
+	end
+	
+	
+	-----------------------------Joker handling
 	--local jokerInfo = love.filesystem.load(mod.path .. 'jokers/'..v..'.lua')()
 	--fillInDefaults(jokerInfo,jokerInfoDefault)
 	
@@ -125,4 +242,14 @@ function SMODS.INIT.superbalatriobros()
 	local debugDeck = SMODS.Deck:new("Super Balatrio Bros testing deck", "mariodeck", {mariodeck = true}, {x = 0, y = 5}, debugDeckLoc)
 	debugDeck:register()
 
+	
+
+
+
+
+	--undo require hack
+	
+	require = oldRequire
 end
+
+
