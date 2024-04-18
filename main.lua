@@ -57,6 +57,7 @@ function SMODS.INIT.superbalatriobros()
 	mod.nesData.fps = 59.94
 	
 	mod.nesData.isActive = false
+	mod.nesData.showFullView = false
 	
 	mod.nesData.marioScore = 0
 	
@@ -184,7 +185,10 @@ function SMODS.INIT.superbalatriobros()
 		end
 		
 		loveDrawRef()
-		--love.graphics.draw(mod.nesData.image)
+		if mod.nesData.showFullView then
+			love.graphics.setColor(1,1,1,0.75)
+			love.graphics.draw(mod.nesData.image,0,0,0,1.5,1.5)
+		end
 		
 	end
 	
@@ -293,6 +297,25 @@ function SMODS.INIT.superbalatriobros()
 		end
 		card_drawRef(self,layer)
 	end
+	
+	local cardHoverRef = Card.hover
+	local cardStopHoverRef = Card.stop_hover
+	
+	function Card.hover(self)
+		if self.ability.name == "Super Balatrio Bros." then
+			mod.nesData.showFullView = true
+		end
+		cardHoverRef(self)
+	end
+	
+	function Card.stop_hover(self)
+		if self.ability.name == "Super Balatrio Bros." then
+			mod.nesData.showFullView = false
+		end
+		cardStopHoverRef(self)
+	end
+	
+	
 	
 	--[[
 	for k,v in pairs(localizations) do
