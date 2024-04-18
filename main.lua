@@ -157,6 +157,13 @@ function SMODS.INIT.superbalatriobros()
 					mod.nes.cpu.ram[i] = 0
 				end
 			end
+			
+			if mod.nes.cpu.ram[0x0770] == 3 then -- game over
+				for i=0x07DD,0x07E2 do
+					mod.nes.cpu.ram[i] = 0
+				end
+			end
+			
 		end
 		
 	end
@@ -257,7 +264,7 @@ function SMODS.INIT.superbalatriobros()
 				--do the Mario
 				--swing your arms from side to side
 				if mod.nesData.isActive then
-					mod.nesData.framesToUpdate = mod.nesData.framesToUpdate + (dt * mod.nesData.fps)
+					mod.nesData.framesToUpdate = mod.nesData.framesToUpdate + (dt * mod.nesData.fps) / G.SETTINGS.GAMESPEED
 					self.ability.extra.chips = math.floor(mod.nesData.marioScore / 10)
 					
 				else
