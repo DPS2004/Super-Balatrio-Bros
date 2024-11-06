@@ -32,12 +32,13 @@ end
 
 function SMODS.INIT.superbalatriobros()
 	local mod = SMODS.findModByID('superbalatriobros')
+	local mod_path = mod.path:match("Mods/[^/]+") .. '/'
 	
 	
 	------------------------------Set up emulator
 	local oldRequire = require
 	require = function(path)
-		return love.filesystem.load(mod.path .. 'LuaNES/'..path..'.lua')()
+		return assert(SMODS.load_file('LuaNES/'..path..'.lua'))()
 	end
 	
 	require('nes')
@@ -64,7 +65,7 @@ function SMODS.INIT.superbalatriobros()
 	function mod.resetMario()
 		print("RESETTING NES")
 		mod.nes = NES:new({
-			file = love.filesystem.getSaveDirectory() ..'/' .. mod.path .. 'LuaNES/roms/Super Mario Bros (E).nes',
+			file = mod.path .. 'LuaNES/roms/Super Mario Bros (E).nes',
 			loglevel = 0,
 			pc = nil,
 			palette = UTILS.map(
@@ -257,7 +258,7 @@ function SMODS.INIT.superbalatriobros()
 	SMODS.Sprite:new('j_supermariobros',mod.path,'supermariobros.png',71,95,'asset_atli'):register()
 	
 	--but this time with feeling!
-	mod.marioCardBase = love.graphics.newImage(mod.path..'assets/1x/supermariobros.png')
+	mod.marioCardBase = love.graphics.newImage(mod_path..'assets/1x/supermariobros.png')
 		
 	
 	--updates
